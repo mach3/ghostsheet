@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Ajax DEMO</title>
+	<style>
+		html {
+			background-color: #f0f0f0;
+			font-size: 13px;
+		}
+		body {
+			width: 800px;
+			margin: 0 auto;
+			background-color: #f9f9f9;
+			padding: 1em;
+		}
+		input[type=text] {
+			padding: 0.5em;
+			width: 40em;
+		}
+		button {
+			padding: 0.5em 1em;
+		}
+		#message {
+			color: #f90;
+		}
+		table {
+			border-collapse: collapse;
+		}
+		th, td {
+			border: 1px solid #ccc;
+			padding: 0.5em 1em;
+			box-shadow: inset 1px 1px 1px #fff;
+		}
+		th {
+			background-color: #f3f3f3;
+		}
+	</style>
+</head>
+<body>
+
+	<h1>DEMO</h1>
+
+	<form id="control">
+		ID : <input type="text" id="sheet-id" value="0Ark6jIWYcmkLdGtva1M4elh4SHFrM3FaM1pVNGJ1QWc/od6">
+		<button id="button-load" name="submit">LOAD</button>
+	</form>
+
+	<div id="output">
+		<p id="message"></p>
+		<table id="result"></table>
+	</div>
+
+
+	<script src="./jquery.min.js"></script>
+	<script>
+
+	(function(){
+		var nodes = {
+			"control" : $("#control"),
+			"message" : $("#message"),
+			"result" : $("#result"),
+			"inputId" : $("#sheet-id")
+		};
+
+		nodes.control.on("submit", function(e){
+			var id = nodes.inputId.val();
+
+			e.preventDefault();
+
+			$.ajax({
+				url : "./ajax.php",
+				type : "get",
+				dataType : "json",
+				data : {
+					id : id,
+					cache : "true"
+				}
+			})
+			.then(function(data, status){
+				var header;
+
+				nodes.result.html("").hide();
+				header = $("<tr />");
+				$.each(data.items[0], function(key, value){
+					header.append(
+						$("<th />").text(key)
+					);
+				});
+				header.appendTo(nodes.result);
+				$.each(data.items, function(index, item){
+					var row = $("<tr />");
+					$.each(item, function(key, value){
+						$("<td />").text(value).appendTo(row);
+					});
+					row.appendTo(nodes.result);
+				});
+
+				nodes.message.hide().text("Success").fadeIn(500);
+				nodes.result.fadeIn(500);
+
+				console.log(data);
+			})
+			.fail(function(data, status, message){
+				nodes.message.hide().text(message).fadeIn(500);
+				nodes.result.html("").hide();
+			});
+		});
+	}());
+
+	</script>
+	
+</body>
+</html>
