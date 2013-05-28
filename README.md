@@ -53,11 +53,11 @@ Get your spreadsheet id from URL
 https://spreadsheets.google.com/feeds/cells/XXXXXXXXXXXXXXXXXXXXXX/YYY/public/basic?alt=rss
 ```
 
-This "XXXXXXXXXXXXXXXXXXXXXX/YYY" is your sheet's ID
+This `"XXXXXXXXXXXXXXXXXXXXXX/YYY"` is your sheet's ID
 
 ### Load it
 
-```
+```php
 require "the/path/to/Ghostsheet.php";
 $gs = new Ghostsheet(array(
 	"cacheDir" => "./gscache/"
@@ -67,7 +67,7 @@ $data = $gs->load("XXXXXXXXXXXXXXXXXXXXXX/YYY");
 
 Now, `$data` has array consists of spreadsheet contents.
 
-```
+```php
 array(
 	"id" => ""https://spreadsheets.google.com/feeds/cells/XXXXXXXXXXXXXXXXXXXXXX/YYY/public/basic"",
 	"title" => "mysheet", // your sheet's name
@@ -88,7 +88,7 @@ array(
 
 Ghostsheet has an interface for AJAX request.
 
-```
+```php
 $gs = new Ghostsheet();
 $gs->ajax($_GET);
 ```
@@ -106,7 +106,7 @@ Available parameters are :
 
 Configure options with `config()` or `set()`.
 
-```
+```php
 $gs->set("cacheDir", "./mycache/");
 $gs->config(array("timeout", 60));
 ```
@@ -118,7 +118,6 @@ $gs->config(array("timeout", 60));
 - timeout : Integer (30) - Timeout seconds for cURL request
 - expires : Integer (3600) - Lifetime seconds of cache file
 - jsonp : Boolean (false) - Allow JSONP request for `ajax()`
-
 
 
 ## Tasks
