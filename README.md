@@ -16,24 +16,28 @@ Simple Google Spreadsheet Loader for PHP and Ajax
 Example :
 
 <table>
-	<tr>
-		<th>name</th>
-		<th>age:integer</th>
-		<th>email</th>
-		<th>active:bool</th>
-	</tr>
-	<tr>
-		<td>john</td>
-		<td>18</td>
-		<td>john@example.com</td>
-		<td>true</td>
-	</tr>
-	<tr>
-		<td>tom</td>
-		<td>21</td>
-		<td>tom@example.com</td>
-		<td>false</td>
-	</tr>
+	<thead>
+		<tr>
+			<th>name</th>
+			<th>age:integer</th>
+			<th>email</th>
+			<th>active:bool</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>john</td>
+			<td>18</td>
+			<td>john@example.com</td>
+			<td>true</td>
+		</tr>
+		<tr>
+			<td>tom</td>
+			<td>21</td>
+			<td>tom@example.com</td>
+			<td>false</td>
+		</tr>
+	</tbody>
 </table>
 
 - First row must be header consists of field name
@@ -73,12 +77,7 @@ array(
 	"title" => "mysheet", // your sheet's name
 	"updated" => "2013-05-28T10:37:51.771Z",
 	"items" => array(
-		array(
-			"name" => "John",
-			"age" => 18,
-			"email" => "john@example.com",
-			"active" => true
-		),
+		array("name" => "John", "age" => 18, "email" => "john@example.com", "active" => true),
 		...
 	)
 );
@@ -89,6 +88,7 @@ array(
 Ghostsheet has an interface for AJAX request.
 
 ```php
+# ajax.php
 $gs = new Ghostsheet();
 $gs->ajax($_GET);
 ```
@@ -96,13 +96,16 @@ $gs->ajax($_GET);
 This will response JSON for the passed parameter.
 If no arguments, this uses $_GET as default.
 
-Available parameters are :
+Example for jQuery :
 
-- id : Spreadsheet's id
-- cache : Use cache or not
-- callback : JSONP callback (if JSONP is allowed in options)
+```
+$.getJSON("ajax.php", {id : "XXXXXXXXXX/YYY", cache : false})
+.then(function(data){
+	var items = data.items;
+});
+```
 
-## Options
+## Configure
 
 Configure options with `config()` or `set()`.
 
@@ -111,18 +114,14 @@ $gs->set("cacheDir", "./mycache/");
 $gs->config(array("timeout", 60));
 ```
 
-- cacheDir : String ("./cache/") - Directory to save cache
-- cache : Boolean (true) - Use cache or not
-- prefix : String - Prefix for Google Spreadsheet URL
-- suffix : String - Suffix for Google Spreadsheet URL
-- timeout : Integer (30) - Timeout seconds for cURL request
-- expires : Integer (3600) - Lifetime seconds of cache file
-- jsonp : Boolean (false) - Allow JSONP request for `ajax()`
+## API Doc
 
+&raquo; [Learn More About Ghostsheet](doc/api.md)
 
-## Tasks
+## Change Log
 
-- [ ] Write API Doc
+&raquo; [Change Log](doc/changelog.md)
+
 
 -----
 

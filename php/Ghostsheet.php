@@ -27,7 +27,9 @@ class Ghostsheet {
 		// expires : Expire second of cache lifetime
 		"expires" => 3600, 
 		// jsonp : Allow jsonp in ajax()
-		"jsonp" => false
+		"jsonp" => false,
+		// devel : Development mode (ignore and not create cache)
+		"devel" => false
 	);
 
 	private $types = array(
@@ -36,6 +38,8 @@ class Ghostsheet {
 		"float", "double", "real",
 		"string"
 	);
+
+	private $logs = array();
 
 	/**
 	 * Constructor
@@ -90,18 +94,42 @@ class Ghostsheet {
 	 * @return Array|Null
 	 */
 	public function load($id, $cache = null){
-		$cache = is_null($cache) ? $this->get("cache") : $cache;
 		$data = null;
+		$cache = is_null($cache) ? $this->get("cache") : $cache;
 
-		if($cache){
-			if($data = $this->_getCache($id)){
-				return $data;
-			}
-		} 
-		if($data = $this->_fetch($id)){
-			return $data;
+		switch(true){
+			case $this->get("devel") :
+				$data = $this->_fetch($id);
+				break;
+			case $cache :
+				$data = $this->_getCache($id);
+				if($data){ break; }
+			default :
+				$data = $this->_fetch($id);
+				if($data){ break; }
+				$data = $this->_getCache($id, true);
+				break;
 		}
-		return $this->_getCache($id, true);
+		return $data;
+	}
+
+	/**
+	 * Get log messages
+	 * @return Array
+	 */
+	public function getLogs(){
+		return $this->logs;
+	}
+
+	/**
+	 * Add log
+	 * @param String $message
+	 */
+	private function _log($message){
+		array_push($this->logs, array(
+			"time" => date(DATE_RFC822),
+			"message" => $message
+		));
 	}
 
 	/**
@@ -116,8 +144,10 @@ class Ghostsheet {
 		$vars = array(
 			"id" => $this->_filter("id", $input, "/^[a-z0-9\/]+$/i"),
 			"cache" => ! preg_match("/^false$/i", $this->_filter("cache", $input, "/^(true|false)$/i")),
-			"callback" => $this->_filter("callback", $input, "/^[a-z0-9_]+$/i")
+			"devel" => preg_match("/^true$/i", $this->_filter("devel", $input, "/^(true|false)$/i")),
+			"callback" => $this->_filter("callback", $input, "/^[a-z0-9_\.]+$/i")
 		);
+		$this->set("devel", $vars["devel"]);
 		$output = json_encode($this->load($vars["id"], $vars["cache"]));
 
 		if($output === "null"){
@@ -147,7 +177,7 @@ class Ghostsheet {
 	}
 
 	/**
-	 * (danger) Remove all files in cache directory
+	 * Remove all files in cache directory (Not recommended to use)
 	 * @return Boolean
 	 */
 	public function cleanAll(){
@@ -176,6 +206,7 @@ class Ghostsheet {
 		$header = array();
 
 		if(! is_array(@$source["feed"]["entry"])){
+			$this->_log("Parse Error : {$id}");
 			return null;
 		}
 
@@ -257,8 +288,14 @@ class Ghostsheet {
 		$expired = (time() - $mtime) > $this->get("expires");
 
 		if($mtime !== 0 && ($force || ! $expired)){
+			if($force){
+				$this->_log("Returnd Cached Data Forcely : {$id}");
+			} else {
+				$this->_log("Returned Cached Data : {$id}");
+			}
 			return unserialize(file_get_contents($path));
 		}
+		$this->_log("Cache Expired : {$id}");
 		return null;
 	}
 
@@ -268,10 +305,12 @@ class Ghostsheet {
 	 * @param Array $content
 	 */
 	private function _saveCache($id, $content){
-		file_put_contents(
-			$this->_getPath($id),
-			serialize($content)
-		);
+		$path = $this->_getPath($id);
+		if(file_put_contents($path, serialize($content))){
+			$this->_log("Cache Created as \"{$path}\" : {$id}");
+		} else {
+			$this->_log("Failed to Create Cache : {$id}");
+		}
 	}
 
 	/**
@@ -302,8 +341,12 @@ class Ghostsheet {
 		curl_close($ch);
 
 		if($success && $result){
+			$this->_log("Successfully Fetch Remote Data : {$id}");
 			$data = $this->_parse($result);
-			$this->_saveCache($id, $data);
+
+			if(! $this->get("devel")){
+				$this->_saveCache($id, $data);
+			}
 		}
 		return $data;
 	}
