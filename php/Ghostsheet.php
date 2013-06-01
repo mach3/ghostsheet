@@ -5,7 +5,7 @@
  * ----------
  * Load Google spreadsheet, parse it, output data or response as JSON
  *
- * @version 0.9
+ * @version 0.9.1
  * @author mach3
  * @url http://github.com/mach3/ghostsheet
  *
