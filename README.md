@@ -97,7 +97,7 @@ If no arguments, this uses $_GET as default.
 
 Example for jQuery :
 
-```
+```javascript
 $.getJSON("ajax.php", {id : "XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY", cache : false})
 .then(function(data){
 	var items = data.items;
