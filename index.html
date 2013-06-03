@@ -81,12 +81,12 @@
 
 <ol>
 <li>Open "File" &gt; "Publish to the web" dialog</li>
-<li>In "Get a link to the published data" section, select "RSS" and "Cells"</li>
-<li>You can get url just like below</li>
-</ol><pre><code>https://spreadsheets.google.com/feeds/cells/XXXXXXXXXXXXXXXXXXXXXX/YYY/public/basic?alt=rss
+<li>In "Get a link to the published data" section, select "RSS"</li>
+<li>You can get url like below</li>
+</ol><pre><code>https://spreadsheets.google.com/feeds/cells/XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY/public/basic?alt=rss
 </code></pre>
 
-<p>This <code>"XXXXXXXXXXXXXXXXXXXXXX/YYY"</code> is your sheet's ID</p>
+<p>Ths string <code>"XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY"</code> is used as your sheet's ID</p>
 
 <h3>
 <a name="load-it" class="anchor" href="#load-it"><span class="octicon octicon-link"></span></a>Load it</h3>
@@ -95,13 +95,13 @@
 <span class="nv">$gs</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Ghostsheet</span><span class="p">(</span><span class="k">array</span><span class="p">(</span>
     <span class="s2">"cacheDir"</span> <span class="o">=&gt;</span> <span class="s2">"./gscache/"</span>
 <span class="p">));</span>
-<span class="nv">$data</span> <span class="o">=</span> <span class="nv">$gs</span><span class="o">-&gt;</span><span class="na">load</span><span class="p">(</span><span class="s2">"XXXXXXXXXXXXXXXXXXXXXX/YYY"</span><span class="p">);</span>
+<span class="nv">$data</span> <span class="o">=</span> <span class="nv">$gs</span><span class="o">-&gt;</span><span class="na">load</span><span class="p">(</span><span class="s2">"XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY"</span><span class="p">);</span>
 </pre></div>
 
 <p>Now, <code>$data</code> has array consists of spreadsheet contents.</p>
 
 <div class="highlight"><pre><span class="k">array</span><span class="p">(</span>
-    <span class="s2">"id"</span> <span class="o">=&gt;</span> <span class="s2">"https://spreadsheets.google.com/feeds/cells/XXXXXXXXXXXXXXXXXXXXXX/YYY/public/basic"</span><span class="p">,</span>
+    <span class="s2">"id"</span> <span class="o">=&gt;</span> <span class="s2">"https://spreadsheets.google.com/feeds/cells/XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY/public/basic"</span><span class="p">,</span>
     <span class="s2">"title"</span> <span class="o">=&gt;</span> <span class="s2">"mysheet"</span><span class="p">,</span> <span class="c1">// your sheet's name</span>
     <span class="s2">"updated"</span> <span class="o">=&gt;</span> <span class="s2">"2013-05-28T10:37:51.771Z"</span><span class="p">,</span>
     <span class="s2">"items"</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
@@ -121,16 +121,16 @@
 <span class="nv">$gs</span><span class="o">-&gt;</span><span class="na">ajax</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">);</span>
 </pre></div>
 
-<p>This will response JSON for the passed parameter.
+<p>This will respond with JSON for the passed parameter.
 If no arguments, this uses $_GET as default.</p>
 
 <p>Example for jQuery :</p>
 
-<div class="highlight"><pre><span class="nx">$</span><span class="p">.</span><span class="nx">getJSON</span><span class="p">(</span><span class="s2">"ajax.php"</span><span class="p">,</span> <span class="p">{</span><span class="nx">id</span> <span class="o">:</span> <span class="s2">"XXXXXXXXXX/YYY"</span><span class="p">,</span> <span class="nx">cache</span> <span class="o">:</span> <span class="kc">false</span><span class="p">})</span>
-<span class="p">.</span><span class="nx">then</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">){</span>
-    <span class="kd">var</span> <span class="nx">items</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">items</span><span class="p">;</span>
-<span class="p">});</span>
-</pre></div>
+<pre><code>$.getJSON("ajax.php", {id : "XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY", cache : false})
+.then(function(data){
+    var items = data.items;
+});
+</code></pre>
 
 <h2>
 <a name="configure" class="anchor" href="#configure"><span class="octicon octicon-link"></span></a>Configure</h2>
@@ -144,12 +144,12 @@ If no arguments, this uses $_GET as default.</p>
 <h2>
 <a name="api-doc" class="anchor" href="#api-doc"><span class="octicon octicon-link"></span></a>API Doc</h2>
 
-<p>» <a href="https://github.com/mach3/ghostsheet/doc/api.md">Learn More About Ghostsheet</a></p>
+<p>» <a href="https://github.com/mach3/ghostsheet/blob/master/doc/api.md">Learn More About Ghostsheet</a></p>
 
 <h2>
 <a name="change-log" class="anchor" href="#change-log"><span class="octicon octicon-link"></span></a>Change Log</h2>
 
-<p>» <a href="https://github.com/mach3/ghostsheet/doc/changelog.md">Change Log</a></p>
+<p>» <a href="https://github.com/mach3/ghostsheet/blob/master/doc/changelog.md">Change Log</a></p>
 
 <hr><h2>
 <a name="author" class="anchor" href="#author"><span class="octicon octicon-link"></span></a>Author</h2>
