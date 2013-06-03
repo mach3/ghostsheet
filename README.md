@@ -1,4 +1,3 @@
-
 # Ghostsheet
 
 Simple Google Spreadsheet Loader for PHP and Ajax
@@ -50,14 +49,14 @@ Example :
 Get your spreadsheet id from URL
 
 1. Open "File" > "Publish to the web" dialog
-2. In "Get a link to the published data" section, select "RSS" and "Cells"
-3. You can get url just like below
+2. In "Get a link to the published data" section, select "RSS"
+3. You can get url like below
 
 ```
-https://spreadsheets.google.com/feeds/cells/XXXXXXXXXXXXXXXXXXXXXX/YYY/public/basic?alt=rss
+https://spreadsheets.google.com/feeds/cells/XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY/public/basic?alt=rss
 ```
 
-This `"XXXXXXXXXXXXXXXXXXXXXX/YYY"` is your sheet's ID
+Ths string `"XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY"` is used as your sheet's ID
 
 ### Load it
 
@@ -66,14 +65,14 @@ require "the/path/to/Ghostsheet.php";
 $gs = new Ghostsheet(array(
 	"cacheDir" => "./gscache/"
 ));
-$data = $gs->load("XXXXXXXXXXXXXXXXXXXXXX/YYY");
+$data = $gs->load("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY");
 ```
 
 Now, `$data` has array consists of spreadsheet contents.
 
 ```php
 array(
-	"id" => ""https://spreadsheets.google.com/feeds/cells/XXXXXXXXXXXXXXXXXXXXXX/YYY/public/basic"",
+	"id" => "https://spreadsheets.google.com/feeds/cells/XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY/public/basic",
 	"title" => "mysheet", // your sheet's name
 	"updated" => "2013-05-28T10:37:51.771Z",
 	"items" => array(
@@ -93,13 +92,13 @@ $gs = new Ghostsheet();
 $gs->ajax($_GET);
 ```
 
-This will response JSON for the passed parameter.
+This will respond with JSON for the passed parameter.
 If no arguments, this uses $_GET as default.
 
 Example for jQuery :
 
 ```
-$.getJSON("ajax.php", {id : "XXXXXXXXXX/YYY", cache : false})
+$.getJSON("ajax.php", {id : "XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY", cache : false})
 .then(function(data){
 	var items = data.items;
 });
