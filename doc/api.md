@@ -11,6 +11,7 @@
 - expires : Integer (3600) - Expire sec for cache
 - jsonp : Boolean (true) - Allow JSONP request or not
 - devel : Boolean (false) - Run on development mode or not
+- nullfill : Boolean (true) - Fill blank column with null or not
 
 *Note* : On development mode, cache is to be ignored and not to be saved.
 

@@ -5,7 +5,7 @@
  * ----------
  * Load Google spreadsheet, parse it, output data or response as JSON
  *
- * @version 0.9.1
+ * @version 0.9.2
  * @author mach3
  * @url http://github.com/mach3/ghostsheet
  *
@@ -29,13 +29,16 @@ class Ghostsheet {
 		// jsonp : Allow jsonp in ajax()
 		"jsonp" => false,
 		// devel : Development mode (ignore and not create cache)
-		"devel" => false
+		"devel" => false,
+		// nullfill : Fill blank column with null
+		"nullfill" => true
 	);
 
 	private $types = array(
 		"int", "integer",
 		"bool", "boolean",
 		"float", "double", "real",
+		"array", "json",
 		"string"
 	);
 
@@ -228,6 +231,10 @@ class Ghostsheet {
 			}
 		}
 
+		if($this->get("nullfill")){
+			$this->_nullfill($items, $header);
+		}
+
 		return array(
 			"id" => $source["feed"]["id"]["\$t"],
 			"updated" => $source["feed"]["updated"]["\$t"],
@@ -247,9 +254,21 @@ class Ghostsheet {
 			case in_array($type, array("integer", "int")) :
 				return (integer) $value;
 			case in_array($type, array("boolean", "bool")) :
-				return (boolean) $value;
+				if(preg_match("/^(true|false)$/i", $value)){
+					return json_decode($value);
+				} else {
+					return null;
+				}
 			case in_array($type, array("float", "double", "real")) :
 				return (float) $value;
+			case in_array($type, array("array")) :
+				$value = explode(",", str_replace("\\,", "&comma;", $value));
+				foreach($value as $i=>$v){
+					$value[$i] = trim(str_replace("&comma;", ",", $v));
+				}
+				return $value;
+			case $type === "json" :
+				return json_decode($value);
 			default :
 				return (string) $value;
 		}
@@ -273,6 +292,20 @@ class Ghostsheet {
 			"type" => "string",
 			"name" => $title
 		);
+	}
+
+	/**
+	 * Fill blank fields with null
+	 * @param Array &$items
+	 * @param Array $header
+	 */
+	private function _nullfill(&$items, $header){
+		foreach($items as &$item){
+			foreach($header as $field){
+				$name = $field["name"];
+				$item[$name] = array_key_exists($name, $item) ? $item[$name] : null;
+			}
+		}
 	}
 
 	/**
