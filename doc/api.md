@@ -3,68 +3,99 @@
 
 ## Options
 
-- cacheDir : String ("./cache/") - Directory to save cache
-- cache : Boolean (true) - Use cache or not
-- prefix : String ("http://spreadsheets.google.com/feeds/cells/") - Prefix for Spreadsheet URL
-- suffix : String ("/public/basic?alt=json") - Suffix for Spreadsheet URL
-- timeout : Integer (30) - Timeout secs for curl request
-- expires : Integer (3600) - Expire sec for cache
-- jsonp : Boolean (true) - Allow JSONP request or not
-- devel : Boolean (false) - Run on development mode or not
-- nullfill : Boolean (true) - Fill blank column with null or not
+- **cache_dir** :String ("./cache") - Directory to save cache files
+- **cache_extension** :String (".cache") - Extension for cache files
+- **cache_expires** :integer (3600) - Cache lifetime as seconds
+- **prefix** :String ("http://spreadsheets.google.com/feeds/cells/") - Prefix string for spreadsheet URL
+- **suffix** :String ("/public/basic?alt=json") - Suffix string for spreadsheet URL
+- **timeout** :Integer (30) - Timeout for CURL to get remote data as seconds
+- **nullfill** :Boolean (true) - Fill the empty columns with `Null` or not
+- **debug** :Boolean (false) - Save log or not
+- **jsonp** :Boolean (false) - Allow JSONP access or not
 
-*Note* : On development mode, cache is to be ignored and not to be saved.
+## Properties
+
+### logs :Array
+
+Notice logs are saved as `logs`. If 'debug' option is false, this does not work.
 
 ## Methods
 
-### config(options:Array) : Ghostsheet
+### config([$key|$options] [, $value]) :Mixed
 
-Set options by array
+Configure options, set or get values.
 
-- options : Array set of option's key and value
+```php
+$gs->config("debug", true); // Set by key and value
+$gs->config(array("debug" => true)); // Set by array
+$gs->config("debug"); // Returns a value
+$gs->config(); // Returns all options
+```
 
-### set(key:String, value:Mixed) : Ghostsheet
+### get($id [, $mode="load"]) :Array
 
-Setter for options
+Get spreadsheet data by id with mode ("load", "cache", "update", "fetch")
 
-- key : Key name of options
-- value : Value to set
+```php
+$data = $gs->get($mySpreadSheetId, "load");
+```
 
-### get(key:String) : Mixed
+### ajax([$input = null]) :Boolean
 
-Getter for options
+Interface for Ajax. Pass the values as $input (default is $_GET), then response with JSON or JSONP.
+If 'jsonp' option is FALSE, respond as JSON even if 'callback' parameter is sent.
 
-- key : Key name of options
+$input consists of parameters below:
 
-### load(id:String) : Array
+- id :String - Spreadsheet ID
+- mode :String - Mode name
+- callback :String - Callback function name for JSONP
 
-Load spreadsheet data by id, then return data as array or Null on failure.
+```php
+$gs->ajax($_GET);
+```
 
-- id : Spreadsheet ID
+### load($id) :Array
 
-### getLogs() : Array
+Get data with 'load' mode.  
 
-Get log messages for debug
+- Firstly try to get cache file
+- If cache file does not exist or is expired, fetch remote data and save it as cache file
 
-### ajax([input:Array]) : void
+```php
+$data = $gs->load($mySpreadSheetId);
+```
 
-Interface to repond to Ajax or JSONP request.  
-If arguments not set, this uses `$_GET` data.  
-To request as JSONP, `jsonp` in options must be set as true.
+### update($id) :Array
 
-- input : 
-	- id : Spreadsheet ID
-	- cache : "true|false" ("true") - Use cache or not 
-	- devel : "true|false" ("false") - Run on development mode or not
-	- callback : Callback function's name for JSONP
+Get data with 'update' mode.
 
-### clean(id:String) : Boolean
+- Fetch remote data in spite of cache's lifetime
+- Save it as cache file
 
-Remove cache file by Spreadsheet ID, then return succeeded or not.
+```php
+$data = $gs->update($mySpreadSheetId);
+```
 
-- id : Spreadsheet ID
+### cache($id) :Array
 
-### cleanAll() : Boolean
+Get data with 'cache' mode
 
-Remove all the files in cache directory. Not recommennded to use.
+- Get local cache data in spite of its lifetime
+
+```php
+$data = $gs->cache($mySpreadSheetId);
+```
+
+### fetch($id) :Array
+
+Get data with 'fetch' mode
+
+- Get remote data
+- Do nothing about cache
+
+```php
+$data = $gs->fetch($mySpreadSheetId);
+```
+
 

@@ -65,7 +65,7 @@ require "the/path/to/Ghostsheet.php";
 $gs = new Ghostsheet(array(
 	"cacheDir" => "./gscache/"
 ));
-$data = $gs->load("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY");
+$data = $gs->get("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY");
 ```
 
 Now, `$data` has array consists of spreadsheet contents.
@@ -81,6 +81,20 @@ array(
 	)
 );
 ```
+
+### Load by mode
+
+```php
+// Get data by 'load' mode
+$data = $gs->get("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY", "load");
+```
+
+There is four mode to get data:
+
+- **"load"** (default) Check local cache, if it's expired fetch remote data, save it as cache.
+- **"update"** Get remote data and save it as cache, in spite of cache's lifetime.
+- **"cache"** Get local cache data in spite of its lifetime. If cache does not exist, return null.
+- **"fetch"** Get remote data, doesn't save it as cache.
 
 ## Ajax
 
@@ -98,7 +112,7 @@ If no arguments, this uses $_GET as default.
 Example for jQuery :
 
 ```javascript
-$.getJSON("ajax.php", {id : "XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY", cache : false})
+$.getJSON("ajax.php", {id: "XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY", mode: "load"})
 .then(function(data){
 	var items = data.items;
 });
@@ -106,11 +120,12 @@ $.getJSON("ajax.php", {id : "XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY", 
 
 ## Configure
 
-Configure options with `config()` or `set()`.
+Configure options with `config()`
 
 ```php
-$gs->set("cacheDir", "./mycache/");
-$gs->config(array("timeout", 60));
+$gs->config("cache_dir", "./mycache/");
+$gs->config("cache_dir"); // Returns "./mycache/"
+$gs->config(); // Returns all options
 ```
 
 ## API Doc

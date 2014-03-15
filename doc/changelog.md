@@ -1,6 +1,10 @@
 
 # Change Log
 
+## 0.9.3 (2013-03-15)
+
+- [!] Change Interfaces
+
 ## 0.9.2 (2013-06-03)
 
 - Add "json", "array" as type for field

@@ -5,35 +5,40 @@
  * ----------
  * Load Google spreadsheet, parse it, output data or response as JSON
  *
- * @version 0.9.2
- * @author mach3
+ * @version 0.9.3
+ * @author mach3 <http://github.com/mach3>
  * @url http://github.com/mach3/ghostsheet
- *
  */
 
 class Ghostsheet {
 
+	/**
+	 * Options:
+	 * - {String} cache_dir ... Directory to save cache file
+	 * - {String} cache_extension ... Extention string for cache file
+	 * - {Integer} cache_expires ... Cache lifetime as seconds
+	 * - {String} prefix ... Prefix string for spreadsheet id
+	 * - {String} suffix ... Suffix string for spreadsheet id
+	 * - {Integer} timeout ... Timeout seconds for curl
+	 * - {Boolean} nullfill ... Fill empty column as `Null` or not
+	 * - {Boolean} debug ... Save logs or not
+	 * - {Boolean} jsonp ... Allow jsonp access or not
+	 */
 	private $options = array(
-		// cachDir : Directory to save cache files
-		"cacheDir" => "./cache/", 
-		// cache : Use cache or not
-		"cache" => true, 
-		// prefix : Prefix for Google Spreadsheet URL
+		"cache_dir" => "./cache",
+		"cache_extension" => ".cache",
+		"cache_expires" => 3600, 
 		"prefix" => "http://spreadsheets.google.com/feeds/cells/",
-		// suffix : Suffix for Google Spreadsheet URL
 		"suffix" => "/public/basic?alt=json",
-		// timeout : Timeout for cURL request
 		"timeout" => 30,
-		// expires : Expire second of cache lifetime
-		"expires" => 3600, 
-		// jsonp : Allow jsonp in ajax()
-		"jsonp" => false,
-		// devel : Development mode (ignore and not create cache)
-		"devel" => false,
-		// nullfill : Fill blank column with null
-		"nullfill" => true
+		"nullfill" => true,
+		"debug" => false,
+		"jsonp" => false
 	);
 
+	/**
+	 * Types for juggling type of column values
+	 */
 	private $types = array(
 		"int", "integer",
 		"bool", "boolean",
@@ -42,174 +47,197 @@ class Ghostsheet {
 		"string"
 	);
 
-	private $logs = array();
+	/**
+	 * Modes list for get() method
+	 */
+	private $modes = array(
+		"load", "update", "fetch", "cache"
+	);
+
+	/**
+	 * Container for logs
+	 */
+	public $logs = array();
 
 	/**
 	 * Constructor
-	 * @constructor
-	 * @param Array $options
+	 * - Configure options if having arguments
 	 */
 	public function __construct($options = null){
-		if(is_array($options)){
+		if(null !== $options){
 			$this->config($options);
 		}
 	}
 
 	/**
+	 * Interfaces
+	 * ----------
+	 */
+
+	/**
 	 * Configure options
-	 * @param Array $options
+	 * - config(key, value);
+	 * - config(key);
+	 * - config(vars);
+	 * - config();
+	 * @param {Mixed} Args...
+	 * @return {Mixed}
 	 */
-	public function config($options){
-		foreach($options as $key => $value){
-			$this->set($key, $value);
+	public function config(){
+		$args = func_get_args();
+		if(! count($args)){
+			return $this->options;
+		}
+		switch(gettype($args[0])){
+			case "array":
+				foreach($args[0] as $key => $value){
+					$this->config($key, $value);
+				}
+				return $this;
+			case "string":
+				if(count($args) === 1){
+					return $this->options[$args[0]];
+				}
+				$this->options[$args[0]] = $args[1];
+				return $this;
+			default: break;
 		}
 		return $this;
 	}
 
 	/**
-	 * Set a value to option
-	 * @param String $key
-	 * @param Mixed $value
+	 * Get spreadsheet data from cache or remote
+	 * - Wrapper for `load`, `update`, `fetch`, `cache`
+	 * @param {String} $id 
+	 * @param {String} $mode (optional)
+	 * @return {Array}
 	 */
-	public function set($key, $value){
-		if(array_key_exists($key, $this->options)){
-			$this->options[$key] = $value;
+	public function get($id, $mode = "load"){
+		if(! in_array($mode, $this->modes)){
+			$this->_log("Invalid mode: {$mode}");
+			throw new Exception("Invalid mode @ get(): {$mode}");
 		}
-		return $this;
+		return $this->$mode($id);
 	}
 
 	/**
-	 * Get a value from option
-	 * @param String $key
-	 * @return Mixed|Null
+	 * Ajax interface
+	 * - id: Spreadsheet ID
+	 * - mode: Load mode
+	 * - callback: Callback function name for JSONP
+	 *   (If 'jsonp' in options is FALSE, response as JSON)
+	 * @param {Array} $input
 	 */
-	public function get($key){
-		if(array_key_exists($key, $this->options)){
-			return $this->options[$key];
+	public function ajax($input = null){
+		$input = !! $input ? $input : $_GET;
+		$vars = array(
+			"id" => $this->_filter("id", $input, null),
+			"mode" => $this->_filter("mode", $input, "load"),
+			"callback" => $this->_filter("callback", $input, null)
+		);
+		$data = $this->get($vars["id"], $vars["mode"]);
+
+		if(! $data){
+			header("HTTP/1.1 500 Internal Server Error");
+			return false;
 		}
-		return null;
+
+		if(!! $vars["callback"] && $this->config("jsonp")){
+			header("Content-Type: text/javascript");
+			header("X-Content-Type-Options: nosniff");
+			printf("%s(%s);", $vars["callback"], json_encode($data));
+			return true;
+		}
+
+		header("Content-Type: application/json");
+		header("X-Content-Type-Options: nosniff");
+		echo json_encode($data);
+		return true;
 	}
 
 	/**
-	 * Load data from cache or remote spreadsheet
-	 * @param String $id
-	 * @param Boolean $cache (optional)
-	 * @return Array|Null
+	 * Load spreadsheet data normally
+	 * - Firstly try to get local cache
+	 * - If cache is valid (not expired), return cache data
+	 * - If not, try to get remote data, save it as cache
+	 * - Then return
+	 * @param {String} $id
+	 * @return {Array}
 	 */
-	public function load($id, $cache = null){
-		$data = null;
-		$cache = is_null($cache) ? $this->get("cache") : $cache;
-
-		switch(true){
-			case $this->get("devel") :
-				$data = $this->_fetch($id);
-				break;
-			case $cache :
-				$data = $this->_getCache($id);
-				if($data){ break; }
-			default :
-				$data = $this->_fetch($id);
-				if($data){ break; }
-				$data = $this->_getCache($id, true);
-				break;
+	public function load($id){
+		$this->_validateId($id);
+		$data = $this->_getLocal($id);
+		if(! $data){
+			$data = $this->update($id);
 		}
 		return $data;
 	}
 
 	/**
-	 * Get log messages
-	 * @return Array
+	 * Update local cache by remote data
+	 * - Returns latest data
+	 * @param {String} $id
+	 * @return {Array}
 	 */
-	public function getLogs(){
-		return $this->logs;
+	public function update($id){
+		$this->_validateId($id);
+		$data = $this->_parse($this->_getRemote($id));
+		if($data){
+			$this->_saveLocal($id, $data);
+		}
+		return $data;
 	}
 
 	/**
-	 * Add log
-	 * @param String $message
+	 * Get local cache data in spite of its lifetime
+	 * - Does not touch remote data at all
+	 * @param {String} $id
 	 */
-	private function _log($message){
-		array_push($this->logs, array(
-			"time" => date(DATE_RFC822),
-			"message" => $message
-		));
+	public function cache($id){
+		$this->_validateId($id);
+		$data = $this->_getlocal($id, true);
+		return $data;
 	}
 
 	/**
-	 * Interface for XHR / JSONP access
-	 * $input is $_GET as default
-	 * $input must have "id", can have "cache", "callback" (if jsonp allowed)
-	 * @param Array $input
+	 * Get remote data in spite of cache existing
+	 * - Does not save it as local cache
+	 * @param {String} $id
 	 */
-	public function ajax($input = null){
-		$input = is_null($input) ? $_GET : $input;
-
-		$vars = array(
-			"id" => $this->_filter("id", $input, "/^[a-z0-9\/]+$/i"),
-			"cache" => ! preg_match("/^false$/i", $this->_filter("cache", $input, "/^(true|false)$/i")),
-			"devel" => preg_match("/^true$/i", $this->_filter("devel", $input, "/^(true|false)$/i")),
-			"callback" => $this->_filter("callback", $input, "/^[a-z0-9_\.]+$/i")
-		);
-		$this->set("devel", $vars["devel"]);
-		$output = json_encode($this->load($vars["id"], $vars["cache"]));
-
-		if($output === "null"){
-			header("HTTP/1.0 500 Failed to load spreadsheet");
-			die;
-		}
-		if($vars["callback"] && $this->get("jsonp")){
-			$output = $vars["callback"] . "({$output})";
-		}
-
-		header("Content-Type: application/json; charset=utf-8");
-		header("X-Content-Type-Options: nosniff");
-		echo $output;
+	public function fetch($id){
+		$this->_validateId($id);
+		$json = $this->_getRemote($id);
+		$data = $this->_parse($json);
+		return $data;
 	}
 
 	/**
-	 * Remove cache file by id
-	 * @param String $id
-	 * @return Boolean
+	 * Utilities
+	 * ---------
 	 */
-	public function clean($id = null){
-		$path = $this->_getPath($id);
-		if(file_exists($path)){
-			return unlink($path);
+
+	/**
+	 * Validate id string, update it as URL
+	 * @param {String} &$id
+	 * @return {String}
+	 */
+	private function _validateId(&$id){
+		if(! preg_match("/^http(s)?:\/\//", $id)){
+			$id = $this->config("prefix") . $id . $this->config("suffix");
 		}
-		return false;
 	}
 
 	/**
-	 * Remove all files in cache directory (Not recommended to use)
-	 * @return Boolean
+	 * Parse the spreadsheet JSON string as array with columns
+	 * @param {String} $json
 	 */
-	public function cleanAll(){
-		$dir = $this->get("cacheDir");
-		$dp = opendir($dir);
-		if(! $dp){
-			return false;
-		}
-		while($file = readdir($dp)){
-			$path = "{$dir}/{$file}";
-			if(! preg_match("/^\./", $file) && is_file($path)){
-				unlink($path);
-			}
-		}
-		return true;
-	}
-
-	/**
-	 * Parse a source of spreadsheet (json) and get data as array
-	 * @param String $content
-	 * @return Array|Null
-	 */
-	private function _parse($content){
-		$source = json_decode($content, true);
+	private function _parse($json){
+		$source = json_decode($json, true);
 		$items = array();
 		$header = array();
 
 		if(! is_array(@$source["feed"]["entry"])){
-			$this->_log("Parse Error : {$id}");
+			$this->_log("Parse Error : {$json}");
 			return null;
 		}
 
@@ -231,7 +259,7 @@ class Ghostsheet {
 			}
 		}
 
-		if($this->get("nullfill")){
+		if($this->config("nullfill")){
 			$this->_nullfill($items, $header);
 		}
 
@@ -244,10 +272,30 @@ class Ghostsheet {
 	}
 
 	/**
-	 * Juggle type of value
-	 * @param Mixed $value
-	 * @param String $type
-	 * @return Mixed
+	 * Parse value in header columns
+	 * - Returns array which consists of title name and type string
+	 * @param {String} $title
+	 * @return {Array}
+	 */
+	private function _parseTitle($title){
+		$types = implode("|", $this->types);
+		if(preg_match("/^(.+?):({$types})$/", $title, $m)){
+			return array(
+				"type" => $m[2],
+				"name" => $m[1]
+			);
+		}
+		return array(
+			"type" => "string",
+			"name" => $title
+		);
+	}
+
+	/**
+	 * Juggle the value as the type
+	 * @param {String} $value
+	 * @param {String} $type
+	 * @return {Mixed}
 	 */
 	private function _juggle($value, $type){
 		switch(true){
@@ -275,29 +323,9 @@ class Ghostsheet {
 	}
 
 	/**
-	 * Parse header column ("<name>:<type>")
-	 * return array as array("type" => <type>, "name" => <name>)
-	 * @param String $title
-	 * @return Array
-	 */
-	private function _parseTitle($title){
-		$types = implode("|", $this->types);
-		if(preg_match("/^(.+?):({$types})$/", $title, $m)){
-			return array(
-				"type" => $m[2],
-				"name" => $m[1]
-			);
-		}
-		return array(
-			"type" => "string",
-			"name" => $title
-		);
-	}
-
-	/**
-	 * Fill blank fields with null
-	 * @param Array &$items
-	 * @param Array $header
+	 * If column value is empty, fill it as `Null`
+	 * @param {Array} &$items
+	 * @param {Array} $header
 	 */
 	private function _nullfill(&$items, $header){
 		foreach($items as &$item){
@@ -309,93 +337,91 @@ class Ghostsheet {
 	}
 
 	/**
-	 * Try to get cache data
-	 * If $force == true, ignore expires
-	 * @param String $id
-	 * @param Boolean $force
-	 * @return Array|Null
+	 * Get remote data with curl
+	 * @param {String} $url
+	 * @return {String}
 	 */
-	private function _getCache($id, $force = false){
-		$path = $this->_getPath($id);
-		$mtime = file_exists($path) ? filemtime($path) : 0;
-		$expired = (time() - $mtime) > $this->get("expires");
-
-		if($mtime !== 0 && ($force || ! $expired)){
-			if($force){
-				$this->_log("Returnd Cached Data Forcely : {$id}");
-			} else {
-				$this->_log("Returned Cached Data : {$id}");
-			}
-			return unserialize(file_get_contents($path));
-		}
-		$this->_log("Cache Expired : {$id}");
-		return null;
-	}
-
-	/**
-	 * Save data to cache file
-	 * @param String $id
-	 * @param Array $content
-	 */
-	private function _saveCache($id, $content){
-		$path = $this->_getPath($id);
-		if(file_put_contents($path, serialize($content))){
-			$this->_log("Cache Created as \"{$path}\" : {$id}");
-		} else {
-			$this->_log("Failed to Create Cache : {$id}");
-		}
-	}
-
-	/**
-	 * Get path by cache directory in option and id string
-	 * @param String $id
-	 */
-	private function _getPath($id){
-		return $this->get("cacheDir") . "/" . md5(urlencode($id));
-	}
-
-	/**
-	 * Fetch json data from Google spreadsheet by id
-	 * and save as cache file if success
-	 * @param String $id
-	 * @return Array|null
-	 */
-	private function _fetch($id){
-		$data = null;
-		$url = $this->get("prefix") . $id . $this->get("suffix");
+	private function _getRemote($url){
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_HEADER, false);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch, CURLOPT_TIMEOUT, $this->get("timeout"));
+		curl_setopt($ch, CURLOPT_TIMEOUT, $this->config("timeout"));
 		$result = curl_exec($ch);
 		$status = curl_getinfo($ch);
 		$success = !! preg_match("/^2/", (string) $status["http_code"]);
 		curl_close($ch);
-
 		if($success && $result){
-			$this->_log("Successfully Fetch Remote Data : {$id}");
-			$data = $this->_parse($result);
-
-			if(! $this->get("devel")){
-				$this->_saveCache($id, $data);
-			}
+			return $result;
+		} else {
+			$this->_log("Failed to fetch remote data @ getRemote() : {$url}");
 		}
-		return $data;
+		return null;
 	}
 
 	/**
-	 * Get filtered value from data by key
-	 * $filter is string for preg_match
-	 * @param String $key
-	 * @param Array $data
-	 * @param String $filter
+	 * Get local cache data
+	 * - If cache file does not exists or is expired, return null
+	 * - Set $force as TRUE to forcely get cache data in spite of its lifetime
+	 * @param {String} $id
+	 * @param {Boolean} $force (optional)
+	 * @return {Array}
 	 */
-	private function _filter($key, $data, $filter = null){
-		$value = array_key_exists($key, $data) ? $data[$key] : "";
-		if($filter){
-			$value = preg_match($filter, $value, $m) ? $m[0] : "";
+	private function _getLocal($id, $force = false){
+		$file = $this->_getCacheFileName($id);
+		if(! file_exists($file)){
+			$this->_log("Cache file not found @ getLocal() : {$id}");
+			return null;
 		}
-		return $value;
+		$expire = (time() - filemtime($file)) > $this->config("cache_expires");
+		if($expire && ! $force){
+			$this->_log("Cache file is expired @ getLocal() : {$id}");
+			return null; 
+		}
+		return json_decode(file_get_contents($file), true);
+	}
+
+	/**
+	 * Save the $data as cache named $id
+	 * @param {String} $id
+	 * @param {Array} $data
+	 */
+	private function _saveLocal($id, $data){
+		$done = file_put_contents($this->_getCacheFileName($id), json_encode($data));
+		if($done){
+			$this->_log("Cache file saved @ saveLocal() : {$id}");
+		}
+		return $done;
+	}
+
+	/**
+	 * Get cache file name by id
+	 * @param {String} $id
+	 * @return {String}
+	 */
+	private function _getCacheFileName($id){
+		return $this->config("cache_dir") . "/" . md5(urlencode($id)) . $this->config("cache_extension");
+	}
+
+	/**
+	 * Save the log
+	 * @param {String} $message
+	 */
+	private function _log($message){
+		if(! $this->config("debug")){
+			return;
+		}
+		array_push($this->logs, array(
+			"time" => date(DATE_RFC822),
+			"message" => $message
+		));
+	}
+
+	private function _filter($key, $vars, $default = null){
+		if(array_key_exists($key, $vars)){
+			return $vars[$key];
+		}
+		return $default;
 	}
 }
+

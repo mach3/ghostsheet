@@ -55,58 +55,85 @@
 	<script src="./jquery.min.js"></script>
 	<script>
 
-	(function(){
-		var nodes = {
-			"control" : $("#control"),
-			"message" : $("#message"),
-			"result" : $("#result"),
-			"inputId" : $("#sheet-id")
-		};
+	var app = {
 
-		nodes.control.on("submit", function(e){
-			var id = nodes.inputId.val();
+		control: $("#control"),
+		message: $("#message"),
+		result: $("#result"),
+		input: $("#sheet-id"),
 
-			e.preventDefault();
+		init: function(){
+			var my = this;
+			this.control.on("submit", $.proxy(this.onSubmit.bind(this), this));
+		},
 
+		load: function(id){
+			var my = this;
 			$.ajax({
-				url : "./ajax.php",
-				type : "get",
-				dataType : "json",
-				data : {
-					id : id,
-					cache : "true"
+				url: "./ajax.php",
+				type: "get",
+				data: {
+					mode: "cache",
+					id: id
 				}
-			})
-			.then(function(data, status){
-				var header;
+			}).fail(function(){
+				console.error(arguments);
+			}).then(function(data){
+				my.setMessage(id + " is successfully loaded.");
+				my.setResult(data.items);
 
-				nodes.result.html("").hide();
-				header = $("<tr />");
-				$.each(data.items[0], function(key, value){
-					header.append(
-						$("<th />").text(key)
-					);
+				$.ajax({
+					url: "./ajax.php",
+					type: "get",
+					data: {mode: "update"}
 				});
-				header.appendTo(nodes.result);
-				$.each(data.items, function(index, item){
-					var row = $("<tr />");
-					$.each(item, function(key, value){
-						$("<td />").text(value).appendTo(row);
-					});
-					row.appendTo(nodes.result);
-				});
-
-				nodes.message.hide().text("Success").fadeIn(500);
-				nodes.result.fadeIn(500);
-
-				console.log(data);
-			})
-			.fail(function(data, status, message){
-				nodes.message.hide().text(message).fadeIn(500);
-				nodes.result.html("").hide();
 			});
-		});
-	}());
+		},
+
+		setMessage: function(message){
+			this.message.hide().html(message).fadeIn();
+		},
+
+		setResult: function(items){
+			var table, header, rows;
+
+			table = this.result;
+			header = [];
+			rows = [];
+			table.html("").hide();
+
+			$.each(items, function(i, item){
+				var row = [];
+				$.each(item, function(key, value){
+					if(! rows.length){
+						header.push(key);
+					}
+					row.push(value);
+				});
+				rows.push(row);
+			});
+
+			rows.unshift(header);
+
+			$.each(rows, function(i, row){
+				var tr = $("<tr>");
+				var tag = !! i ? "<td>" : "<th>";
+				$.each(row, function(i, value){
+					tr.append($(tag).html(value));
+				});
+				table.append(tr);
+			});
+
+			table.fadeIn();
+		},
+
+		onSubmit: function(e){
+			e.preventDefault();
+			this.load(this.input.val());
+		}
+	};
+
+	app.init();
 
 	</script>
 	
