@@ -43,32 +43,51 @@ Example :
 - If field name has data type (as `:string`), PHP try to juggle value to the type  
   (If not set, value will be output as string)
 
+### Fetching Sheet Data
 
-### Get Spreadsheet ID
+#### By Index or Name
 
-Get your spreadsheet id from URL
-
-1. Open "File" > "Publish to the web" dialog
-2. In "Get a link to the published data" section, select "RSS"
-3. You can get url like below
+Ghostsheet is able to fetch by index or name of sheet.
+Pass worksheet's **key** and **index or name** of the sheet you want to fetch data of.
 
 ```
-https://spreadsheets.google.com/feeds/cells/XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY/public/basic?alt=rss
+$gs = new Ghostsheet();
+$data = $gs->get("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx", 0); // Get first sheet
+$data = $gs->get("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx", "product"); // Get sheet named "product"
 ```
 
-Ths string `"XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY"` is used as your sheet's ID
+#### By Full ID
 
-### Load it
+Full ID is an identifier string formatted as "[spreadsheet-key]/[sheet-id]".
 
-```php
-require "the/path/to/Ghostsheet.php";
-$gs = new Ghostsheet(array(
-	"cacheDir" => "./gscache/"
-));
-$data = $gs->get("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY");
+This skips a process to fetch the sheet list by API,
+it's much faster than fetching by index or name
+
+```
+$gs = new Ghostsheet();
+$data = $gs->get("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/od6");
 ```
 
-Now, `$data` has array consists of spreadsheet contents.
+#### With Mode
+
+Four modes are available by specifying in third argument.
+
+```
+// Get "product" sheet with "load" mode
+$gs->get("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx", "product", "load");
+// Or Full ID
+$data = $gs->get("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/od6", null, "load");
+```
+
+- **"load"** (default) Check local cache, if it's expired fetch remote data, save it as cache.
+- **"update"** Get remote data and save it as cache, in spite of cache's lifetime.
+- **"cache"** Get local cache data in spite of its lifetime. If cache does not exist, return null.
+- **"fetch"** Get remote data, doesn't save it as cache.
+
+
+### Do Something on Data
+
+Now, `$data` has an array consists of spreadsheet contents.
 
 ```php
 array(
@@ -82,19 +101,6 @@ array(
 );
 ```
 
-### Load by mode
-
-```php
-// Get data by 'load' mode
-$data = $gs->get("XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY", "load");
-```
-
-There is four mode to get data:
-
-- **"load"** (default) Check local cache, if it's expired fetch remote data, save it as cache.
-- **"update"** Get remote data and save it as cache, in spite of cache's lifetime.
-- **"cache"** Get local cache data in spite of its lifetime. If cache does not exist, return null.
-- **"fetch"** Get remote data, doesn't save it as cache.
 
 ## Ajax
 
@@ -106,13 +112,17 @@ $gs = new Ghostsheet();
 $gs->ajax($_GET);
 ```
 
-This will respond with JSON for the passed parameter.
+This will respond with JSON for the passed parameters.
 If no arguments, this uses $_GET as default.
 
 Example for jQuery :
 
 ```javascript
-$.getJSON("ajax.php", {id: "XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY", mode: "load"})
+$.getJSON("ajax.php", {
+	key: "XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx", // Spreadsheet Key or ID
+	name: "product", // Sheet Index or Name
+	mode: "load", // Load mode
+})
 .then(function(data){
 	var items = data.items;
 });
@@ -123,6 +133,7 @@ $.getJSON("ajax.php", {id: "XXxxxxXXXxxxXxXxxxxXxxxxxXXXxXXXxXxxXXXXXXXx/yyY", m
 Configure options with `config()`
 
 ```php
+$gs->config(array("cache_dir", "./mycache"));
 $gs->config("cache_dir", "./mycache/");
 $gs->config("cache_dir"); // Returns "./mycache/"
 $gs->config(); // Returns all options

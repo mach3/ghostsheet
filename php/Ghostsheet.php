@@ -5,7 +5,7 @@
  * ----------
  * Load Google spreadsheet, parse it, output data or response as JSON
  *
- * @version 0.9.3
+ * @version 0.9.4
  * @author mach3 <http://github.com/mach3>
  * @url http://github.com/mach3/ghostsheet
  */
@@ -17,8 +17,10 @@ class Ghostsheet {
 	 * - {String} cache_dir ... Directory to save cache file
 	 * - {String} cache_extension ... Extention string for cache file
 	 * - {Integer} cache_expires ... Cache lifetime as seconds
-	 * - {String} prefix ... Prefix string for spreadsheet id
-	 * - {String} suffix ... Suffix string for spreadsheet id
+	 * - {Boolean} cache_list ... Cache the list data or not
+	 * - {String} url_list ... URL Template for sheet list
+	 * - {String} url_sheet .. URL Template for fetching sheet data
+	 * - {String} mode_default ... Default mode
 	 * - {Integer} timeout ... Timeout seconds for curl
 	 * - {Boolean} nullfill ... Fill empty column as `Null` or not
 	 * - {Boolean} debug ... Save logs or not
@@ -27,9 +29,11 @@ class Ghostsheet {
 	private $options = array(
 		"cache_dir" => "./cache",
 		"cache_extension" => ".cache",
-		"cache_expires" => 3600, 
-		"prefix" => "http://spreadsheets.google.com/feeds/cells/",
-		"suffix" => "/public/basic?alt=json",
+		"cache_expires" => 3600,
+		"cache_list" => true,
+		"url_list" => "http://spreadsheets.google.com/feeds/worksheets/%s/public/basic?alt=json",
+		"url_sheet" => "http://spreadsheets.google.com/feeds/cells/%s/public/basic?alt=json",
+		"mode_default" => "load",
 		"timeout" => 30,
 		"nullfill" => true,
 		"debug" => false,
@@ -106,36 +110,118 @@ class Ghostsheet {
 	}
 
 	/**
-	 * Get spreadsheet data from cache or remote
-	 * - Wrapper for `load`, `update`, `fetch`, `cache`
-	 * @param {String} $id 
-	 * @param {String} $mode (optional)
+	 * Get worksheet list by spreadsheet key
+	 * - If $cache is TRUE, try to get local data
+	 * - If $cache and $force is TRUE, forcely get local data in spite of its lifetime
+	 * - If $cache is FALSE, forcely get remote data
+	 * @param {String} $key
+	 * @param {Boolean} $cache
+	 * @param {Boolean} $force
 	 * @return {Array}
 	 */
-	public function get($id, $mode = "load"){
+	public function getSheets($key, $cache = null, $force = false){
+		$cache = is_null($cache) ? $this->config("cache_list") : $cache;
+		$list = $cache ? $this->_getLocal($key, $force) : null;
+
+		if(! is_null($list)){
+			return $list;
+		}
+
+		$url = sprintf($this->config("url_list"), $key);
+		$data = json_decode($this->_getRemote($url), true);
+		$list = array();
+
+		if(!! $data && array_key_exists("feed", $data)){
+			foreach($data["feed"]["entry"] as $i => $item){
+				array_push($list, array(
+					"id" => preg_replace("/.+\//", "", $item["id"]["\$t"]),
+					"name" => $item["title"]["\$t"]
+				));
+			}
+			if(count($list)){
+				$this->_saveLocal($key, $list);
+				return $list;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Get sheet ID ("od6" or something) by name or index
+	 * If not found, return first sheet ID.
+	 * $cache and $force is to be passed to getSheets()
+	 * @param {String|Integer} $name
+	 * @param {String} $key
+	 * @param {Boolean} $cache
+	 * @param {Boolean} $force
+	 * @return {String}
+	 */
+	public function getSheetId($name, $key, $cache = null, $force = false){
+		$list = $this->getSheets($key, $cache, $force);
+		if(gettype($name) === "integer"){
+			$sheet = $list[$name];
+		} else {
+			foreach($list as $item){
+				if($item["name"] === $name){
+					$sheet = $item;
+					break;
+				}
+			}
+		}
+		if(! isset($sheet)){
+			$index = !! preg_match("/^\d+$/", $name) ? (integer) $name : 0;
+			$sheet = $this->_filter($index, $list);
+		}
+		return $this->_filter("id", $sheet);
+	}
+
+	/**
+	 * Get spreadsheet data from cache or remote
+	 * @param {String} $key
+	 * @param {String|Integer} $name (optional)
+	 * @param {String} $mode (optional)
+	 */
+	public function get($key, $name = 0, $mode = "load"){
 		if(! in_array($mode, $this->modes)){
 			$this->_log("Invalid mode: {$mode}");
 			throw new Exception("Invalid mode @ get(): {$mode}");
+		}
+		$id = strpos($key, "/") ? $key : null;
+		if(! $id){
+			$args = null;
+			switch($mode){
+				case "load": $args = array(true, false); break;
+				case "cache": $args = array(true, true); break;
+				case "fetch": $args = array(false, false); break;
+				case "update": $args = array(false, false); break;
+				default: break;
+			}
+			$args = array_merge(array($name, $key), $args);
+			$id = "{$key}/" . call_user_func_array(array($this, "getSheetId"), $args);
 		}
 		return $this->$mode($id);
 	}
 
 	/**
 	 * Ajax interface
-	 * - id: Spreadsheet ID
+	 * - key: key of Spreadsheet or Spreadsheet ID
+	 * - name: Name or index of sheet
 	 * - mode: Load mode
 	 * - callback: Callback function name for JSONP
-	 *   (If 'jsonp' in options is FALSE, response as JSON)
+	 *   (If 'jsonp' option is FALSE, response as JSON)
 	 * @param {Array} $input
 	 */
 	public function ajax($input = null){
 		$input = !! $input ? $input : $_GET;
+
 		$vars = array(
-			"id" => $this->_filter("id", $input, null),
-			"mode" => $this->_filter("mode", $input, "load"),
+			"key" => $this->_filter("key", $input, null),
+			"name" => $this->_filter("name", $input, 0),
+			"mode" => $this->_filter("mode", $input, null),
 			"callback" => $this->_filter("callback", $input, null)
 		);
-		$data = $this->get($vars["id"], $vars["mode"]);
+		$data = $this->get($vars["key"], $vars["name"], $vars["mode"]);
 
 		if(! $data){
 			header("HTTP/1.1 500 Internal Server Error");
@@ -223,7 +309,7 @@ class Ghostsheet {
 	 */
 	private function _validateId(&$id){
 		if(! preg_match("/^http(s)?:\/\//", $id)){
-			$id = $this->config("prefix") . $id . $this->config("suffix");
+			$id = sprintf($this->config("url_sheet"), $id);
 		}
 	}
 
@@ -417,8 +503,14 @@ class Ghostsheet {
 		));
 	}
 
+	/**
+	 * Return value in vars by key
+	 * @param {String} $key
+	 * @param {Array} $vars
+	 * @param {Mixed} $default (optional)
+	 */
 	private function _filter($key, $vars, $default = null){
-		if(array_key_exists($key, $vars)){
+		if(is_array($vars) && array_key_exists($key, $vars)){
 			return $vars[$key];
 		}
 		return $default;
